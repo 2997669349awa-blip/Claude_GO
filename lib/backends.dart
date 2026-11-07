@@ -16,8 +16,8 @@ abstract class ClaudeBackend {
   Future<void> dispose() async {}
 }
 
-/// Local mode: a small Node bridge inside Termux drives `claude` and streams
-/// its NDJSON output back over localhost.
+/// Local mode: a small Node bridge inside the embedded container drives
+/// `claude` and streams its NDJSON output back over localhost.
 class LocalBackend implements ClaudeBackend {
   LocalBackend(this.settings);
 

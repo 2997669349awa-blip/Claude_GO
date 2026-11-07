@@ -56,6 +56,18 @@ android {
         abortOnError = false
         disable += "ExpiredTargetSdkVersion"
     }
+
+    packaging {
+        // proot is executed from nativeLibraryDir, so the libraries must be
+        // extracted onto disk rather than loaded straight from the APK.
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
+    androidResources {
+        noCompress += listOf("xz", "tar")
+    }
 }
 
 kotlin {
@@ -66,4 +78,9 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Rootfs bundle is a .tar.xz.
+    implementation("org.tukaani:xz:1.10")
 }

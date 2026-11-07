@@ -1,26 +1,24 @@
 import 'package:flutter/services.dart';
 
-/// Android side: Termux RUN_COMMAND, foreground service and storage access.
+/// Android side: embedded runtime, foreground service and storage access.
 class Native {
   static const _channel = MethodChannel('claude_go/native');
 
-  static Future<bool> termuxInstalled() async =>
-      (await _channel.invokeMethod<bool>('termuxInstalled')) ?? false;
+  static Future<Map<String, dynamic>> runtimeStatus() async {
+    final value = await _channel.invokeMethod<Map>('runtimeStatus');
+    return (value ?? const {}).cast<String, dynamic>();
+  }
 
-  static Future<bool> hasTermuxPermission() async =>
-      (await _channel.invokeMethod<bool>('hasTermuxPermission')) ?? false;
+  static Future<void> installRuntime() =>
+      _channel.invokeMethod('installRuntime');
 
-  static Future<bool> requestTermuxPermission() async =>
-      (await _channel.invokeMethod<bool>('requestTermuxPermission')) ?? false;
+  static Future<void> installClaudeCode() =>
+      _channel.invokeMethod('installClaudeCode');
 
-  static Future<void> runTermux(
-    String command, {
-    bool background = true,
-  }) =>
-      _channel.invokeMethod('runTermux', {
-        'command': command,
-        'background': background,
-      });
+  static Future<void> startBridge(String token) =>
+      _channel.invokeMethod('startBridge', {'token': token});
+
+  static Future<void> stopBridge() => _channel.invokeMethod('stopBridge');
 
   static Future<void> startProtection() =>
       _channel.invokeMethod('startProtection');

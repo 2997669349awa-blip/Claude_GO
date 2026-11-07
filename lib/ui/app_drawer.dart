@@ -200,7 +200,7 @@ class AppDrawer extends StatelessWidget {
                     : scheme.onSurface.withValues(alpha: 0.5),
               ),
               title: const Text('本地容器'),
-              subtitle: const Text('Termux + Claude Code'),
+              subtitle: const Text('内置 Ubuntu + Claude Code'),
               onTap: () => _open(context, const LocalSetupPage()),
             ),
             ListTile(

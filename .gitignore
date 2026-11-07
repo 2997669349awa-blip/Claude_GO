@@ -49,3 +49,6 @@ app.*.map.json
 
 # JVM heap dumps
 *.hprof
+
+# The bundled Linux rootfs is a large build input from the DSH runtime.
+android/app/src/main/assets/runtime/rootfs-*.tar.xz

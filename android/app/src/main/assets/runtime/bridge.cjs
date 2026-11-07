@@ -1,8 +1,3 @@
-import 'dart:convert';
-
-/// The Node bridge that runs inside Termux. It exposes localhost:8787 and
-/// spawns `claude` in headless stream-json mode.
-const bridgeScript = r'''
 const http = require('http');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -12,12 +7,21 @@ const path = require('path');
 const TOKEN = process.env.CLAUDE_GO_TOKEN || '';
 const PORT = 8787;
 let child = null;
+const home = os.homedir();
+
+function expandHome(value) {
+  if (!value) return home;
+  if (value === '~') return home;
+  if (value.startsWith('$HOME')) return home + value.slice(5);
+  if (value.startsWith('~/')) return path.join(home, value.slice(2));
+  return value;
+}
 
 function claudeBin() {
   const home = os.homedir();
   const candidates = [
+    '/usr/local/bin/claude',
     path.join(home, '.local', 'bin', 'claude'),
-    '/data/data/com.termux/files/usr/bin/claude',
   ];
   for (const candidate of candidates) {
     try {
@@ -35,7 +39,11 @@ function sendJson(res, code, value) {
 
 const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
-    return sendJson(res, 200, { ok: true, claude: claudeBin() });
+    return sendJson(res, 200, {
+      ok: true,
+      claude: claudeBin(),
+      installed: fs.existsSync(claudeBin()),
+    });
   }
   if (req.method === 'POST' && req.url === '/stop') {
     if (child) {
@@ -62,10 +70,12 @@ const server = http.createServer((req, res) => {
     }
 
     const env = Object.assign({}, process.env, payload.env || {});
-    env.PATH = path.join(os.homedir(), '.local', 'bin') + ':' + (env.PATH || '');
+    env.PATH = '/usr/local/bin:' + path.join(home, '.local', 'bin') + ':' + (env.PATH || '');
     const args = ['-p', '--output-format', 'stream-json', '--verbose', '--include-partial-messages'];
     if (payload.permissionMode) args.push('--permission-mode', payload.permissionMode);
     if (payload.sessionId) args.push('--resume', payload.sessionId);
+    const cwd = expandHome(payload.cwd);
+    try { fs.mkdirSync(cwd, { recursive: true }); } catch (_) {}
 
     res.writeHead(200, {
       'content-type': 'application/x-ndjson',
@@ -75,7 +85,7 @@ const server = http.createServer((req, res) => {
     let proc;
     try {
       proc = spawn(claudeBin(), args, {
-        cwd: payload.cwd || os.homedir(),
+        cwd: cwd,
         env,
       });
     } catch (error) {
@@ -110,57 +120,3 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log('claude-go bridge listening on ' + PORT);
 });
-''';
-
-String _shellQuote(String value) => "'${value.replaceAll("'", r"'\''")}'";
-
-String _bridgeFile() => r'~/.claude-go/bridge.cjs';
-
-String _installBridge() {
-  final encoded = base64Encode(utf8.encode(bridgeScript));
-  return '''
-mkdir -p ~/.claude-go
-printf %s ${_shellQuote(encoded)} | base64 -d > ${_bridgeFile()}
-''';
-}
-
-String _startBridge(String token) => '''
-if [ -f ~/.claude-go/bridge.pid ]; then
-  kill "\$(cat ~/.claude-go/bridge.pid)" 2>/dev/null || true
-fi
-CLAUDE_GO_TOKEN=${_shellQuote(token)} nohup node ${_bridgeFile()} >> ~/.claude-go/bridge.log 2>&1 &
-echo \$! > ~/.claude-go/bridge.pid
-''';
-
-/// First run: installs Node, Claude Code and the bridge, then starts it.
-String buildSetupCommand({
-  required String token,
-  required String workspace,
-}) =>
-    '''
-set -e
-termux-wake-lock 2>/dev/null || true
-termux-setup-storage 2>/dev/null || true
-pkg update -y
-pkg install -y nodejs-lts git curl
-curl -fsSL https://claude.ai/install.sh | bash
-${_installBridge()}
-mkdir -p ${_shellQuote(workspace)} 2>/dev/null || true
-${_startBridge(token)}
-echo CLAUDE_GO_SETUP_DONE
-''';
-
-/// Later runs: keep the installed files, just restart the bridge.
-String buildStartCommand({
-  required String token,
-  required String workspace,
-}) =>
-    '''
-set -e
-termux-wake-lock 2>/dev/null || true
-termux-setup-storage 2>/dev/null || true
-${_installBridge()}
-mkdir -p ${_shellQuote(workspace)} 2>/dev/null || true
-${_startBridge(token)}
-echo CLAUDE_GO_STARTED
-''';

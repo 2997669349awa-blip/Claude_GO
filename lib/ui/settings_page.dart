@@ -244,10 +244,10 @@ class _SettingsPageState extends State<SettingsPage> {
           const SectionLabel('关于'),
           const SizedBox(height: 10),
           Text(
-            'Claude GO 0.2.0\n'
+            'Claude GO 0.3.0\n'
             '第三方 Claude Code 手机客户端。与 Anthropic 无隶属关系，'
             '不包含 Anthropic 的官方 App 或 Claude Code 二进制。\n\n'
-            '本地模式依赖 Termux；云端模式依赖你电脑上的 SSH 与 Claude Code。',
+            '本地模式使用 App 内置容器；云端模式依赖你电脑上的 SSH 与 Claude Code。',
             style: theme.textTheme.bodySmall?.copyWith(height: 1.7),
           ),
           const SizedBox(height: 12),

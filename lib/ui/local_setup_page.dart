@@ -1,10 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../app.dart';
-import '../backends.dart';
 import '../models.dart';
 import '../native.dart';
-import '../termux_setup.dart';
 import 'chat_page.dart';
 import 'widgets.dart';
 
@@ -16,111 +16,53 @@ class LocalSetupPage extends StatefulWidget {
 }
 
 class _LocalSetupPageState extends State<LocalSetupPage> {
-  bool? _termux;
-  bool? _permission;
-  bool _bridge = false;
-  bool _working = false;
-  String _log = '';
+  Map<String, dynamic> _status = const {};
+  Timer? _poll;
+
+  bool get _installed => _status['installed'] == true;
+  bool get _claude => _status['claudeInstalled'] == true;
+  bool get _running => _status['bridgeRunning'] == true;
+  String get _phase => (_status['phase'] as String?) ?? 'idle';
+  int get _progress => (_status['progress'] as num?)?.toInt() ?? -1;
+  String get _log => (_status['log'] as String?) ?? '';
+  bool get _extracting => _phase == 'extracting';
+  bool get _installingClaude => _phase == 'installing-claude';
 
   @override
   void initState() {
     super.initState();
     _refresh();
+    _poll = Timer.periodic(const Duration(seconds: 1), (_) => _refresh());
   }
 
   Future<void> _refresh() async {
-    final termux = await Native.termuxInstalled();
-    final permission = await Native.hasTermuxPermission();
-    final bridge = await LocalBackend.isRunning();
-    if (!mounted) return;
-    setState(() {
-      _termux = termux;
-      _permission = permission;
-      _bridge = bridge;
-    });
-  }
-
-  Future<bool> _waitForBridge({
-    int attempts = 80,
-    Duration interval = const Duration(seconds: 3),
-  }) async {
-    for (var i = 0; i < attempts; i++) {
-      if (await LocalBackend.isRunning()) return true;
-      await Future.delayed(interval);
-      if (mounted) {
-        setState(() => _log = '等待本地桥启动… ${i + 1}/$attempts');
-      }
-    }
-    return false;
-  }
-
-  Future<void> _install() async {
-    final store = StoreScope.of(context);
-    setState(() {
-      _working = true;
-      _log = '正在向 Termux 下发安装命令。首次需要下载 Node 与 Claude Code，请保持 Termux 在前台。';
-    });
     try {
-      await Native.runTermux(
-        buildSetupCommand(
-          token: store.settings.localToken,
-          workspace: store.settings.localWorkspace,
-        ),
-      );
-      final ok = await _waitForBridge();
-      if (!mounted) return;
-      setState(() {
-        _working = false;
-        _bridge = ok;
-        _log = ok
-            ? '本地桥已启动，可以进入对话。'
-            : '等待超时。请打开 Termux 查看 ~/.claude-go/bridge.log，并确认 Termux 设置里已开启 allow-external-apps。';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _working = false;
-        _log = '下发失败：$error';
-      });
+      final status = await Native.runtimeStatus();
+      if (mounted) setState(() => _status = status);
+    } catch (_) {
+      // The channel is not ready yet; the next tick tries again.
     }
   }
 
-  Future<void> _startOnly() async {
+  Future<void> _installRuntime() async {
+    await Native.installRuntime();
+    await _refresh();
+  }
+
+  Future<void> _installClaude() async {
+    await Native.installClaudeCode();
+    await _refresh();
+  }
+
+  Future<void> _startBridge() async {
     final store = StoreScope.of(context);
-    setState(() {
-      _working = true;
-      _log = '正在启动本地桥…';
-    });
-    try {
-      await Native.runTermux(
-        buildStartCommand(
-          token: store.settings.localToken,
-          workspace: store.settings.localWorkspace,
-        ),
-      );
-      final ok = await _waitForBridge(attempts: 20);
-      if (!mounted) return;
-      setState(() {
-        _working = false;
-        _bridge = ok;
-        _log = ok ? '本地桥已启动。' : '没有连上本地桥，请打开 Termux 检查 bridge.log。';
-      });
-    } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _working = false;
-        _log = '启动失败：$error';
-      });
-    }
+    await Native.startBridge(store.settings.localToken);
+    await _refresh();
   }
 
-  Future<void> _requestPermission() async {
-    final granted = await Native.requestTermuxPermission();
-    if (!mounted) return;
-    setState(() => _permission = granted);
-    if (!granted) {
-      setState(() => _log = '权限未授予。请在系统设置里允许 Claude GO 调用 Termux。');
-    }
+  Future<void> _stopBridge() async {
+    await Native.stopBridge();
+    await _refresh();
   }
 
   Future<void> _enterChat() async {
@@ -133,18 +75,28 @@ class _LocalSetupPageState extends State<LocalSetupPage> {
   }
 
   @override
+  void dispose() {
+    _poll?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final store = StoreScope.of(context);
     final theme = Theme.of(context);
     final settings = store.settings;
+    final logTail = _log.trim().split('\n');
+    final shownLog = logTail.length <= 24
+        ? _log
+        : logTail.sublist(logTail.length - 24).join('\n');
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('本地容器'),
         actions: [
           IconButton(
-            tooltip: '刷新状态',
-            onPressed: _working ? null : _refresh,
+            tooltip: '刷新',
+            onPressed: _refresh,
             icon: const Icon(Icons.refresh_rounded),
           ),
           const SizedBox(width: 4),
@@ -153,91 +105,97 @@ class _LocalSetupPageState extends State<LocalSetupPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
         children: [
-          Text(
-            '在手机里运行 Claude Code。',
-            style: theme.textTheme.headlineMedium,
-          ),
+          Text('容器里跑 Claude Code。', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 10),
           Text(
-            '本地模式使用 Termux 作为容器。首次安装会下载 Node 与 Claude Code，'
-            '之后每次只需启动本地桥。',
+            '本地模式在 App 内置的 Ubuntu 容器里运行 Claude Code，不再依赖 Termux。'
+            '发一条消息会送进容器里的 Claude Code，输出实时传回这个界面。',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.62),
             ),
           ),
           const SizedBox(height: 24),
           _StatusPanel(
-            termux: _termux,
-            permission: _permission,
-            bridge: _bridge,
+            installed: _installed,
+            claude: _claude,
+            running: _running,
           ),
+          if (_extracting) ...[
+            const SizedBox(height: 14),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: _progress < 0 ? null : _progress / 100,
+                minHeight: 7,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              _progress < 0 ? '正在解压…' : '正在解压容器 $_progress%',
+              style: theme.textTheme.bodySmall,
+            ),
+          ],
+          if (_installingClaude) ...[
+            const SizedBox(height: 14),
+            const LinearProgressIndicator(minHeight: 7),
+            const SizedBox(height: 6),
+            Text('正在容器内安装 Claude Code…', style: theme.textTheme.bodySmall),
+          ],
           const SizedBox(height: 18),
-          if (_termux == false)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: FilledButton.tonalIcon(
-                onPressed: () =>
-                    Native.openUrl('https://f-droid.org/packages/com.termux/'),
-                icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text('安装 Termux'),
+          if (!_installed)
+            FilledButton.icon(
+              onPressed: _extracting ? null : _installRuntime,
+              icon: const Icon(Icons.inventory_2_outlined, size: 18),
+              label: Text(_extracting ? '正在安装容器…' : '安装容器'),
+            )
+          else if (!_claude)
+            FilledButton.icon(
+              onPressed: _installingClaude ? null : _installClaude,
+              icon: const Icon(Icons.download_rounded, size: 18),
+              label: Text(
+                _installingClaude ? '正在安装 Claude Code…' : '安装 Claude Code',
               ),
-            ),
-          if (_permission == false)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: OutlinedButton.icon(
-                onPressed: _requestPermission,
-                icon: const Icon(Icons.key_rounded, size: 18),
-                label: const Text('授予 RUN_COMMAND 权限'),
-              ),
-            ),
-          FilledButton.icon(
-            onPressed: _working || _termux == false ? null : _install,
-            icon: _working
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.rocket_launch_rounded, size: 18),
-            label: Text(_working ? '处理中…' : '一键安装并启动'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _working || _termux == false ? null : _startOnly,
-            icon: const Icon(Icons.play_arrow_rounded, size: 18),
-            label: const Text('仅启动本地桥'),
-          ),
-          if (_bridge) ...[
-            const SizedBox(height: 10),
+            )
+          else if (!_running)
+            FilledButton.icon(
+              onPressed: _phase == 'starting-bridge' ? null : _startBridge,
+              icon: const Icon(Icons.play_arrow_rounded, size: 18),
+              label: const Text('启动本地桥'),
+            )
+          else
             FilledButton.icon(
               onPressed: _enterChat,
               icon: const Icon(Icons.chat_bubble_outline_rounded, size: 18),
               label: const Text('进入对话'),
             ),
+          if (_running) ...[
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _stopBridge,
+              icon: const Icon(Icons.stop_rounded, size: 18),
+              label: const Text('停止本地桥'),
+            ),
           ],
           const SizedBox(height: 26),
-          const SectionLabel('第一次使用'),
+          const SectionLabel('运行方式'),
           const SizedBox(height: 10),
           _Note(
             index: '1',
-            text: '打开 Termux，长按空白处 → Settings → 勾选 Allow external apps。'
-                '没有这一步，Claude GO 无法把你的安装命令送进去。',
+            text: '安装容器：把内置的 Ubuntu + Node 运行时解压到 App 私有目录，'
+                '首次约 800 MB，需要约 1 GB 空闲空间。',
           ),
           _Note(
             index: '2',
-            text: '点“一键安装并启动”。安装脚本会执行 pkg update、安装 Node、'
-                '运行 Claude Code 官方安装脚本，然后启动本地桥。',
+            text: '安装 Claude Code：在容器内执行 npm 安装，需要网络。'
+                '安装完成后容器里就有 claude 命令。',
           ),
           _Note(
             index: '3',
-            text: '看到“本地桥已启动”后进入对话。日常只需点“仅启动本地桥”。',
+            text: '启动本地桥：在容器内监听 127.0.0.1:8787。'
+                '之后每条消息都会通过它送进容器里的 Claude Code。',
           ),
           const SizedBox(height: 22),
-          const SectionLabel('当前工作区'),
+          const SectionLabel('工作区'),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(12),
@@ -251,38 +209,41 @@ class _LocalSetupPageState extends State<LocalSetupPage> {
               style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
           ),
-          if (settings.externalStorage) ...[
-            const SizedBox(height: 8),
-            Text(
-              '外部存储在 Termux 里需要先通过 termux-setup-storage 授权；'
-              '首次安装会弹出系统存储授权。',
-              style: theme.textTheme.bodySmall,
+          const SizedBox(height: 8),
+          Text(
+            settings.externalStorage
+                ? '外部存储只影响工作区；容器本身固定在 App 私有存储，'
+                      '以保证 proot 的权限和性能。'
+                : '容器和工作区都在 App 私有存储；卸载 App 会一起删除。',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 22),
+          const SectionLabel('运行日志'),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 74, maxHeight: 240),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.045),
+              borderRadius: BorderRadius.circular(12),
             ),
-          ],
-          if (_log.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            const SectionLabel('运行日志'),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(12),
-              ),
+            child: SingleChildScrollView(
+              reverse: true,
               child: SelectableText(
-                _log,
+                shownLog.trim().isEmpty ? '等待操作…' : shownLog,
                 style: const TextStyle(
                   fontFamily: 'monospace',
-                  fontSize: 11.5,
+                  fontSize: 11,
                   height: 1.5,
                 ),
               ),
             ),
-          ],
+          ),
           const SizedBox(height: 26),
           Text(
-            '本地模式依赖 Termux。若系统杀掉了 Termux，本地桥也会中断；'
-            '可在设置里开启后台保护，并在系统里给 Termux 加锁。',
+            '容器通过 proot 运行，不会获得 root 权限，也不会修改系统分区。'
+            '建议在设置里开启后台保护；系统清理 App 时容器进程也会停止。',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurface.withValues(alpha: 0.42),
             ),
@@ -295,14 +256,14 @@ class _LocalSetupPageState extends State<LocalSetupPage> {
 
 class _StatusPanel extends StatelessWidget {
   const _StatusPanel({
-    required this.termux,
-    required this.permission,
-    required this.bridge,
+    required this.installed,
+    required this.claude,
+    required this.running,
   });
 
-  final bool? termux;
-  final bool? permission;
-  final bool bridge;
+  final bool installed;
+  final bool claude;
+  final bool running;
 
   @override
   Widget build(BuildContext context) {
@@ -317,23 +278,21 @@ class _StatusPanel extends StatelessWidget {
       child: Column(
         children: [
           _StatusRow(
-            label: 'Termux',
-            value: termux == null ? '检查中' : (termux! ? '已安装' : '未安装'),
-            ok: termux == true,
+            label: 'Linux 容器',
+            value: installed ? '已安装' : '未安装',
+            ok: installed,
           ),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           _StatusRow(
-            label: 'RUN_COMMAND 权限',
-            value: permission == null
-                ? '检查中'
-                : (permission! ? '已授予' : '未授予'),
-            ok: permission == true,
+            label: 'Claude Code',
+            value: claude ? '已安装' : '未安装',
+            ok: claude,
           ),
           Divider(height: 1, color: theme.colorScheme.outlineVariant),
           _StatusRow(
             label: '本地桥',
-            value: bridge ? '运行中' : '未运行',
-            ok: bridge,
+            value: running ? '运行中' : '未运行',
+            ok: running,
           ),
         ],
       ),

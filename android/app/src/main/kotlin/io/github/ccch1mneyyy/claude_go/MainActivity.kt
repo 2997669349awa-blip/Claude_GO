@@ -11,6 +11,7 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.github.ccch1mneyyy.claude_go.runtime.ClaudeRuntime
 
 class MainActivity : FlutterActivity() {
     private val channelName = "claude_go/native"
@@ -18,32 +19,32 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        ClaudeRuntime.init(this)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
-                    "termuxInstalled" -> result.success(isTermuxInstalled())
+                    "runtimeStatus" -> result.success(ClaudeRuntime.status())
 
-                    "hasTermuxPermission" -> result.success(hasTermuxPermission())
-
-                    "requestTermuxPermission" -> {
-                        if (!hasTermuxPermission()) {
-                            requestPermissions(
-                                arrayOf("com.termux.permission.RUN_COMMAND"),
-                                requestCode,
-                            )
-                        }
-                        result.success(hasTermuxPermission())
+                    "installRuntime" -> {
+                        ClaudeRuntime.installRuntime()
+                        result.success(true)
                     }
 
-                    "runTermux" -> {
-                        val command = call.argument<String>("command") ?: ""
-                        val background = call.argument<Boolean>("background") ?: true
-                        try {
-                            runTermux(command, background)
-                            result.success(true)
-                        } catch (error: Exception) {
-                            result.error("termux_failed", error.message, null)
-                        }
+                    "installClaudeCode" -> {
+                        ClaudeRuntime.installClaudeCode()
+                        result.success(true)
+                    }
+
+                    "startBridge" -> {
+                        ClaudeRuntime.startBridge(
+                            call.argument<String>("token") ?: "",
+                        )
+                        result.success(true)
+                    }
+
+                    "stopBridge" -> {
+                        ClaudeRuntime.stopBridge()
+                        result.success(true)
                     }
 
                     "startProtection" -> {
@@ -123,19 +124,6 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun isTermuxInstalled(): Boolean = try {
-        packageManager.getPackageInfo("com.termux", 0)
-        true
-    } catch (_: PackageManager.NameNotFoundException) {
-        false
-    }
-
-    private fun hasTermuxPermission(): Boolean {
-        if (Build.VERSION.SDK_INT < 23) return true
-        return checkSelfPermission("com.termux.permission.RUN_COMMAND") ==
-            PackageManager.PERMISSION_GRANTED
-    }
-
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
@@ -143,29 +131,8 @@ class MainActivity : FlutterActivity() {
         ) {
             requestPermissions(
                 arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                requestCode + 1,
+                requestCode,
             )
         }
-    }
-
-    private fun runTermux(command: String, background: Boolean) {
-        val intent = Intent("com.termux.RUN_COMMAND").apply {
-            setClassName("com.termux", "com.termux.app.RunCommandService")
-            putExtra(
-                "com.termux.RUN_COMMAND_PATH",
-                "/data/data/com.termux/files/usr/bin/bash",
-            )
-            putExtra(
-                "com.termux.RUN_COMMAND_ARGUMENTS",
-                arrayOf("-lc", command),
-            )
-            putExtra(
-                "com.termux.RUN_COMMAND_WORKDIR",
-                "/data/data/com.termux/files/home",
-            )
-            putExtra("com.termux.RUN_COMMAND_BACKGROUND", background)
-            putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
-        }
-        startService(intent)
     }
 }
