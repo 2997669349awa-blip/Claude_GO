@@ -1,0 +1,966 @@
+{
+  "schema": 1,
+  "id": "spark",
+  "name": "小火花 Spark",
+  "author": "DSH Pro",
+  "license": "造型参照 Anthropic 吉祥物；仅作个人使用，随本仓库以 AGPL-3.0 发布",
+  "source": "tool/make_spark_pet.py",
+  "pixelArt": true,
+  "scale": 8,
+  "canvas": {
+    "w": 32,
+    "h": 24
+  },
+  "anchor": {
+    "x": 16,
+    "baseline": 20
+  },
+  "contentBox": {
+    "x": 0,
+    "y": 5,
+    "w": 32,
+    "h": 15
+  },
+  "hitBoxes": {
+    "default": {
+      "x": 4,
+      "y": 6,
+      "w": 24,
+      "h": 11
+    },
+    "wide": {
+      "x": 0,
+      "y": 2,
+      "w": 32,
+      "h": 18
+    },
+    "sleeping": {
+      "x": 4,
+      "y": 9,
+      "w": 24,
+      "h": 11
+    },
+    "byAnim": {
+      "typing": {
+        "x": 0,
+        "y": 5,
+        "w": 32,
+        "h": 16
+      },
+      "carrying": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 21
+      },
+      "react-drag": {
+        "x": 0,
+        "y": 2,
+        "w": 32,
+        "h": 18
+      }
+    },
+    "wideAnims": [
+      "happy",
+      "error",
+      "notification",
+      "sweeping",
+      "carrying",
+      "waking",
+      "roam",
+      "react-double",
+      "react-left",
+      "react-right"
+    ],
+    "sleepingAnims": [
+      "sleeping"
+    ]
+  },
+  "animations": {
+    "idle": {
+      "sheet": "idle.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 1560,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 200
+        },
+        {
+          "i": 1,
+          "ms": 200
+        },
+        {
+          "i": 2,
+          "ms": 200
+        },
+        {
+          "i": 3,
+          "ms": 240
+        },
+        {
+          "i": 4,
+          "ms": 240
+        },
+        {
+          "i": 5,
+          "ms": 200
+        },
+        {
+          "i": 6,
+          "ms": 140
+        },
+        {
+          "i": 7,
+          "ms": 140
+        }
+      ]
+    },
+    "jitter": {
+      "sheet": "jitter.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 6,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 540,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 90
+        },
+        {
+          "i": 1,
+          "ms": 90
+        },
+        {
+          "i": 2,
+          "ms": 90
+        },
+        {
+          "i": 3,
+          "ms": 90
+        },
+        {
+          "i": 4,
+          "ms": 90
+        },
+        {
+          "i": 5,
+          "ms": 90
+        }
+      ]
+    },
+    "waiting": {
+      "sheet": "waiting.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 2080,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 260
+        },
+        {
+          "i": 1,
+          "ms": 260
+        },
+        {
+          "i": 2,
+          "ms": 260
+        },
+        {
+          "i": 3,
+          "ms": 260
+        },
+        {
+          "i": 4,
+          "ms": 260
+        },
+        {
+          "i": 5,
+          "ms": 260
+        },
+        {
+          "i": 6,
+          "ms": 260
+        },
+        {
+          "i": 7,
+          "ms": 260
+        }
+      ]
+    },
+    "typing": {
+      "sheet": "typing.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 880,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 110
+        },
+        {
+          "i": 1,
+          "ms": 110
+        },
+        {
+          "i": 2,
+          "ms": 110
+        },
+        {
+          "i": 3,
+          "ms": 110
+        },
+        {
+          "i": 4,
+          "ms": 110
+        },
+        {
+          "i": 5,
+          "ms": 110
+        },
+        {
+          "i": 6,
+          "ms": 110
+        },
+        {
+          "i": 7,
+          "ms": 110
+        }
+      ]
+    },
+    "happy": {
+      "sheet": "happy.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 1020,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 100
+        },
+        {
+          "i": 1,
+          "ms": 100
+        },
+        {
+          "i": 2,
+          "ms": 120
+        },
+        {
+          "i": 3,
+          "ms": 170
+        },
+        {
+          "i": 4,
+          "ms": 170
+        },
+        {
+          "i": 5,
+          "ms": 120
+        },
+        {
+          "i": 6,
+          "ms": 100
+        },
+        {
+          "i": 7,
+          "ms": 140
+        }
+      ]
+    },
+    "error": {
+      "sheet": "error.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 720,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 90
+        },
+        {
+          "i": 1,
+          "ms": 90
+        },
+        {
+          "i": 2,
+          "ms": 90
+        },
+        {
+          "i": 3,
+          "ms": 90
+        },
+        {
+          "i": 4,
+          "ms": 90
+        },
+        {
+          "i": 5,
+          "ms": 90
+        },
+        {
+          "i": 6,
+          "ms": 90
+        },
+        {
+          "i": 7,
+          "ms": 90
+        }
+      ]
+    },
+    "notification": {
+      "sheet": "notification.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 1040,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 130
+        },
+        {
+          "i": 1,
+          "ms": 130
+        },
+        {
+          "i": 2,
+          "ms": 130
+        },
+        {
+          "i": 3,
+          "ms": 130
+        },
+        {
+          "i": 4,
+          "ms": 130
+        },
+        {
+          "i": 5,
+          "ms": 130
+        },
+        {
+          "i": 6,
+          "ms": 130
+        },
+        {
+          "i": 7,
+          "ms": 130
+        }
+      ]
+    },
+    "sweeping": {
+      "sheet": "sweeping.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 960,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 120
+        },
+        {
+          "i": 1,
+          "ms": 120
+        },
+        {
+          "i": 2,
+          "ms": 120
+        },
+        {
+          "i": 3,
+          "ms": 120
+        },
+        {
+          "i": 4,
+          "ms": 120
+        },
+        {
+          "i": 5,
+          "ms": 120
+        },
+        {
+          "i": 6,
+          "ms": 120
+        },
+        {
+          "i": 7,
+          "ms": 120
+        }
+      ]
+    },
+    "sleeping": {
+      "sheet": "sleeping.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 6,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 3600,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 600
+        },
+        {
+          "i": 1,
+          "ms": 600
+        },
+        {
+          "i": 2,
+          "ms": 600
+        },
+        {
+          "i": 3,
+          "ms": 600
+        },
+        {
+          "i": 4,
+          "ms": 600
+        },
+        {
+          "i": 5,
+          "ms": 600
+        }
+      ]
+    },
+    "waking": {
+      "sheet": "waking.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 6,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 660,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 110
+        },
+        {
+          "i": 1,
+          "ms": 110
+        },
+        {
+          "i": 2,
+          "ms": 110
+        },
+        {
+          "i": 3,
+          "ms": 110
+        },
+        {
+          "i": 4,
+          "ms": 110
+        },
+        {
+          "i": 5,
+          "ms": 110
+        }
+      ]
+    },
+    "carrying": {
+      "sheet": "carrying.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 960,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 120
+        },
+        {
+          "i": 1,
+          "ms": 120
+        },
+        {
+          "i": 2,
+          "ms": 120
+        },
+        {
+          "i": 3,
+          "ms": 120
+        },
+        {
+          "i": 4,
+          "ms": 120
+        },
+        {
+          "i": 5,
+          "ms": 120
+        },
+        {
+          "i": 6,
+          "ms": 120
+        },
+        {
+          "i": 7,
+          "ms": 120
+        }
+      ]
+    },
+    "roam": {
+      "sheet": "roam.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 880,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 110
+        },
+        {
+          "i": 1,
+          "ms": 110
+        },
+        {
+          "i": 2,
+          "ms": 110
+        },
+        {
+          "i": 3,
+          "ms": 110
+        },
+        {
+          "i": 4,
+          "ms": 110
+        },
+        {
+          "i": 5,
+          "ms": 110
+        },
+        {
+          "i": 6,
+          "ms": 110
+        },
+        {
+          "i": 7,
+          "ms": 110
+        }
+      ]
+    },
+    "react-left": {
+      "sheet": "react-left.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 6,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 540,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 90
+        },
+        {
+          "i": 1,
+          "ms": 90
+        },
+        {
+          "i": 2,
+          "ms": 90
+        },
+        {
+          "i": 3,
+          "ms": 90
+        },
+        {
+          "i": 4,
+          "ms": 90
+        },
+        {
+          "i": 5,
+          "ms": 90
+        }
+      ]
+    },
+    "react-right": {
+      "sheet": "react-right.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 6,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 540,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 90
+        },
+        {
+          "i": 1,
+          "ms": 90
+        },
+        {
+          "i": 2,
+          "ms": 90
+        },
+        {
+          "i": 3,
+          "ms": 90
+        },
+        {
+          "i": 4,
+          "ms": 90
+        },
+        {
+          "i": 5,
+          "ms": 90
+        }
+      ]
+    },
+    "react-double": {
+      "sheet": "react-double.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 8,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 640,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 80
+        },
+        {
+          "i": 1,
+          "ms": 80
+        },
+        {
+          "i": 2,
+          "ms": 80
+        },
+        {
+          "i": 3,
+          "ms": 80
+        },
+        {
+          "i": 4,
+          "ms": 80
+        },
+        {
+          "i": 5,
+          "ms": 80
+        },
+        {
+          "i": 6,
+          "ms": 80
+        },
+        {
+          "i": 7,
+          "ms": 80
+        }
+      ]
+    },
+    "react-drag": {
+      "sheet": "react-drag.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 6,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": true,
+      "ms": 600,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 100
+        },
+        {
+          "i": 1,
+          "ms": 100
+        },
+        {
+          "i": 2,
+          "ms": 100
+        },
+        {
+          "i": 3,
+          "ms": 100
+        },
+        {
+          "i": 4,
+          "ms": 100
+        },
+        {
+          "i": 5,
+          "ms": 100
+        }
+      ]
+    },
+    "glance-left": {
+      "sheet": "glance-left.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 4,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 560,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 120
+        },
+        {
+          "i": 1,
+          "ms": 160
+        },
+        {
+          "i": 2,
+          "ms": 160
+        },
+        {
+          "i": 3,
+          "ms": 120
+        }
+      ]
+    },
+    "glance-right": {
+      "sheet": "glance-right.png",
+      "frameW": 256,
+      "frameH": 192,
+      "cols": 4,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 32,
+        "h": 24
+      },
+      "loop": false,
+      "ms": 560,
+      "frames": [
+        {
+          "i": 0,
+          "ms": 120
+        },
+        {
+          "i": 1,
+          "ms": 160
+        },
+        {
+          "i": 2,
+          "ms": 160
+        },
+        {
+          "i": 3,
+          "ms": 120
+        }
+      ]
+    }
+  },
+  "idlePool": {
+    "anims": [
+      {
+        "anim": "glance-left",
+        "ms": 0,
+        "weight": 1
+      },
+      {
+        "anim": "glance-right",
+        "ms": 0,
+        "weight": 1
+      }
+    ],
+    "everyMs": {
+      "mean": 6000,
+      "min": 4000,
+      "max": 9000
+    }
+  },
+  "states": {
+    "idle": [
+      "idle"
+    ],
+    "thinking": [
+      "waiting"
+    ],
+    "working": [
+      "typing"
+    ],
+    "juggling": [
+      "typing"
+    ],
+    "sweeping": [
+      "sweeping"
+    ],
+    "notification": [
+      "notification"
+    ],
+    "attention": [
+      "happy"
+    ],
+    "error": [
+      "error"
+    ],
+    "carrying": [
+      "carrying"
+    ],
+    "sleeping": [
+      "sleeping"
+    ],
+    "waking": [
+      "waking"
+    ]
+  },
+  "tiers": {
+    "working": [
+      {
+        "min": 1,
+        "anim": "typing"
+      }
+    ],
+    "juggling": [
+      {
+        "min": 1,
+        "anim": "typing"
+      }
+    ]
+  },
+  "timings": {
+    "minDisplay": {
+      "attention": 2400,
+      "error": 3000,
+      "sweeping": 2400,
+      "notification": 3000
+    },
+    "autoReturn": {
+      "sweeping": 2400,
+      "carrying": 3200
+    },
+    "playMs": {
+      "happy": 1200,
+      "error": 900,
+      "sweeping": 1100,
+      "waking": 900
+    },
+    "wakeMs": 900
+  },
+  "reactions": {
+    "tapLeft": "react-left",
+    "tapRight": "react-right",
+    "tickle": "react-double",
+    "drag": "react-drag"
+  },
+  "roam": {
+    "anim": "roam",
+    "faces": "left"
+  },
+  "sleep": {
+    "afterMs": 10000
+  },
+  "bonus": {}
+}

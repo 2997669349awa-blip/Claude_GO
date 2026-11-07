@@ -16,10 +16,10 @@ class AppSettings {
 
   bool protectBackground = false;
   bool externalStorage = false;
+  bool showPet = true;
 
   String localWorkspace = r'$HOME/ClaudeGO';
   String localToken = '';
-  String? localSessionId;
 
   String cloudHost = '';
   int cloudPort = 22;
@@ -28,18 +28,6 @@ class AppSettings {
   String cloudPrivateKey = '';
   String cloudWorkspace = '~';
   String cloudClaudePath = 'claude';
-  String? cloudSessionId;
-
-  String? get sessionId =>
-      mode == BackendMode.local ? localSessionId : cloudSessionId;
-
-  set sessionId(String? value) {
-    if (mode == BackendMode.local) {
-      localSessionId = value;
-    } else {
-      cloudSessionId = value;
-    }
-  }
 
   Map<String, String> get claudeEnv => {
     'ANTHROPIC_BASE_URL': baseUrl,

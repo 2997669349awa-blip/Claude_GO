@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -16,13 +17,23 @@ class AppStore extends ChangeNotifier {
   final FlutterSecureStorage _secure;
 
   final AppSettings settings = AppSettings();
-  final List<ChatMessage> messages = [];
+  final List<ChatSession> sessions = [];
+  String? activeSessionId;
 
   bool busy = false;
   String? lastStderr;
 
   ClaudeBackend? _backend;
   StreamSubscription<ClaudeEvent>? _subscription;
+
+  ChatSession? get activeSession {
+    for (final session in sessions) {
+      if (session.id == activeSessionId) return session;
+    }
+    return null;
+  }
+
+  List<ChatMessage> get messages => activeSession?.messages ?? const [];
 
   static Future<AppStore> load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -35,8 +46,7 @@ class AppStore extends ChangeNotifier {
   Future<void> _read() async {
     final mode = _prefs.getString('mode');
     settings.mode = mode == 'cloud' ? BackendMode.cloud : BackendMode.local;
-    settings.baseUrl =
-        _prefs.getString('baseUrl') ?? settings.baseUrl;
+    settings.baseUrl = _prefs.getString('baseUrl') ?? settings.baseUrl;
     settings.model = _prefs.getString('model') ?? settings.model;
     settings.opusModel =
         _prefs.getString('opusModel') ?? settings.opusModel;
@@ -52,18 +62,39 @@ class AppStore extends ChangeNotifier {
         _prefs.getBool('protectBackground') ?? false;
     settings.externalStorage =
         _prefs.getBool('externalStorage') ?? false;
+    settings.showPet = _prefs.getBool('showPet') ?? true;
     settings.localWorkspace = settings.externalStorage
         ? '/storage/emulated/0/ClaudeGO'
         : (r'$HOME/ClaudeGO');
     settings.localToken = _prefs.getString('localToken') ?? _newToken();
-    settings.localSessionId = _prefs.getString('localSessionId');
     settings.cloudHost = _prefs.getString('cloudHost') ?? '';
     settings.cloudPort = _prefs.getInt('cloudPort') ?? 22;
     settings.cloudUser = _prefs.getString('cloudUser') ?? '';
     settings.cloudWorkspace = _prefs.getString('cloudWorkspace') ?? '~';
     settings.cloudClaudePath =
         _prefs.getString('cloudClaudePath') ?? 'claude';
-    settings.cloudSessionId = _prefs.getString('cloudSessionId');
+
+    final rawSessions = _prefs.getString('sessions');
+    if (rawSessions != null) {
+      try {
+        for (final item in jsonDecode(rawSessions) as List) {
+          sessions.add(
+            ChatSession.fromJson((item as Map).cast<String, dynamic>()),
+          );
+        }
+      } catch (_) {
+        // A broken history must not stop the app from opening.
+      }
+    }
+    activeSessionId = _prefs.getString('activeSession');
+    if (sessions.isEmpty) {
+      final session = ChatSession(id: _newId(), mode: settings.mode);
+      sessions.add(session);
+      activeSessionId = session.id;
+    } else if (!sessions.any((session) => session.id == activeSessionId)) {
+      activeSessionId = sessions.first.id;
+    }
+    sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
     try {
       settings.apiKey = await _secure.read(key: 'apiKey') ?? '';
@@ -81,6 +112,9 @@ class AppStore extends ChangeNotifier {
     return List.generate(32, (_) => random.nextInt(16).toRadixString(16)).join();
   }
 
+  static String _newId() =>
+      '${DateTime.now().microsecondsSinceEpoch}-${Random().nextInt(9999)}';
+
   Future<void> save() async {
     await _prefs.setString('mode', settings.mode.name);
     await _prefs.setString('baseUrl', settings.baseUrl);
@@ -92,22 +126,18 @@ class AppStore extends ChangeNotifier {
     await _prefs.setString('permissionMode', settings.permissionMode);
     await _prefs.setBool('protectBackground', settings.protectBackground);
     await _prefs.setBool('externalStorage', settings.externalStorage);
+    await _prefs.setBool('showPet', settings.showPet);
     await _prefs.setString('localToken', settings.localToken);
-    if (settings.localSessionId == null) {
-      await _prefs.remove('localSessionId');
-    } else {
-      await _prefs.setString('localSessionId', settings.localSessionId!);
-    }
     await _prefs.setString('cloudHost', settings.cloudHost);
     await _prefs.setInt('cloudPort', settings.cloudPort);
     await _prefs.setString('cloudUser', settings.cloudUser);
     await _prefs.setString('cloudWorkspace', settings.cloudWorkspace);
     await _prefs.setString('cloudClaudePath', settings.cloudClaudePath);
-    if (settings.cloudSessionId == null) {
-      await _prefs.remove('cloudSessionId');
-    } else {
-      await _prefs.setString('cloudSessionId', settings.cloudSessionId!);
-    }
+    await _prefs.setString(
+      'sessions',
+      jsonEncode(sessions.map((session) => session.toJson()).toList()),
+    );
+    await _prefs.setString('activeSession', activeSessionId ?? '');
     try {
       await _secure.write(key: 'apiKey', value: settings.apiKey);
       await _secure.write(
@@ -124,38 +154,63 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> setMode(BackendMode mode) async {
-    if (settings.mode == mode) return;
+    final current = activeSession;
     settings.mode = mode;
+    if (current == null || current.mode != mode) {
+      final existing = sessions
+          .where((session) => session.mode == mode)
+          .toList();
+      if (existing.isNotEmpty) {
+        activeSessionId = existing.first.id;
+      } else {
+        final session = ChatSession(id: _newId(), mode: mode);
+        sessions.insert(0, session);
+        activeSessionId = session.id;
+      }
+    }
     notifyListeners();
     await save();
   }
 
   void notify() => notifyListeners();
 
+  ChatSession _ensureSession() {
+    final current = activeSession;
+    if (current != null) return current;
+    final session = ChatSession(id: _newId(), mode: settings.mode);
+    sessions.insert(0, session);
+    activeSessionId = session.id;
+    return session;
+  }
+
   Future<void> send(String prompt) async {
     final text = prompt.trim();
     if (text.isEmpty || busy) return;
 
+    final session = _ensureSession();
     final reply = ChatMessage.assistant()..streaming = true;
-    messages.add(ChatMessage.user(text));
-    messages.add(reply);
+    session.messages.add(ChatMessage.user(text));
+    session.messages.add(reply);
+    session.updatedAt = DateTime.now();
+    if (session.title == '新对话') session.title = _titleFor(text);
     busy = true;
     lastStderr = null;
     notifyListeners();
 
-    final backend = settings.mode == BackendMode.local
+    final backend = session.mode == BackendMode.local
         ? LocalBackend(settings)
         : CloudBackend(settings);
     _backend = backend;
     final completion = Completer<void>();
 
     _subscription = backend
-        .stream(prompt: text, sessionId: settings.sessionId)
+        .stream(prompt: text, sessionId: session.sessionId)
         .listen(
-          (event) => _apply(reply, event),
+          (event) => _apply(session, reply, event),
           onError: (Object error) {
             reply.error = _friendly(error);
             reply.streaming = false;
+            session.updatedAt = DateTime.now();
             busy = false;
             _backend = null;
             _subscription = null;
@@ -164,6 +219,8 @@ class AppStore extends ChangeNotifier {
           },
           onDone: () {
             reply.streaming = false;
+            reply.completedAt = DateTime.now();
+            session.updatedAt = DateTime.now();
             if (reply.error == null &&
                 reply.tools.every((tool) => tool.done) &&
                 reply.text.isEmpty &&
@@ -180,14 +237,15 @@ class AppStore extends ChangeNotifier {
         );
 
     await completion.future;
+    sessions.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     await save();
   }
 
-  void _apply(ChatMessage reply, ClaudeEvent event) {
+  void _apply(ChatSession session, ChatMessage reply, ClaudeEvent event) {
     switch (event.kind) {
       case 'init':
         if (event.sessionId != null && event.sessionId!.isNotEmpty) {
-          settings.sessionId = event.sessionId;
+          session.sessionId = event.sessionId;
         }
         break;
       case 'text':
@@ -231,6 +289,11 @@ class AppStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _titleFor(String text) {
+    final clean = text.replaceAll(RegExp(r'\s+'), ' ').trim();
+    return clean.length <= 26 ? clean : '${clean.substring(0, 26)}…';
+  }
+
   String _friendly(Object error) {
     final text = error.toString().replaceFirst('Exception: ', '');
     if (text.contains('Connection refused') ||
@@ -245,18 +308,48 @@ class AppStore extends ChangeNotifier {
     await _subscription?.cancel();
     _subscription = null;
     _backend = null;
-    if (messages.isNotEmpty && messages.last.streaming) {
-      messages.last.streaming = false;
+    final session = activeSession;
+    if (session != null && session.messages.isNotEmpty) {
+      session.messages.last.streaming = false;
     }
     busy = false;
     notifyListeners();
   }
 
   Future<void> newSession() async {
-    messages.clear();
-    settings.localSessionId = null;
-    settings.cloudSessionId = null;
+    if (busy) return;
+    final session = ChatSession(id: _newId(), mode: settings.mode);
+    sessions.insert(0, session);
+    activeSessionId = session.id;
     lastStderr = null;
+    notifyListeners();
+    await save();
+  }
+
+  Future<void> openSession(String id) async {
+    if (busy) return;
+    for (final session in sessions) {
+      if (session.id == id) {
+        activeSessionId = id;
+        settings.mode = session.mode;
+        break;
+      }
+    }
+    notifyListeners();
+    await save();
+  }
+
+  Future<void> deleteSession(String id) async {
+    if (busy) return;
+    sessions.removeWhere((session) => session.id == id);
+    if (activeSessionId == id) {
+      if (sessions.isEmpty) {
+        final session = ChatSession(id: _newId(), mode: settings.mode);
+        sessions.add(session);
+      }
+      activeSessionId = sessions.first.id;
+      settings.mode = sessions.first.mode;
+    }
     notifyListeners();
     await save();
   }

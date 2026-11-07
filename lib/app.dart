@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'store.dart';
 import 'theme.dart';
-import 'ui/home_page.dart';
+import 'ui/chat_page.dart';
+import 'ui/launch_splash.dart';
 
 class StoreScope extends InheritedNotifier<AppStore> {
   const StoreScope({
@@ -33,7 +34,7 @@ class ClaudeGoApp extends StatelessWidget {
         theme: AppTheme.light(),
         darkTheme: AppTheme.dark(),
         themeMode: ThemeMode.system,
-        home: const HomePage(),
+        home: const LaunchSplash(child: ChatPage()),
       ),
     );
   }

@@ -25,4 +25,26 @@ void main() {
     expect(events.single.kind, 'init');
     expect(events.single.sessionId, 'abc');
   });
+
+  test('a session survives a JSON round trip', () {
+    final session = ChatSession(id: 's1', mode: BackendMode.cloud, title: '测试');
+    session.messages.add(ChatMessage.user('你好'));
+    final reply = ChatMessage.assistant()
+      ..text = '在'
+      ..durationMs = 1200
+      ..costUsd = 0.01;
+    reply.tools.add(
+      ToolCard(id: 't1', name: 'Bash', input: const {'command': 'ls'})
+        ..result = 'a.txt'
+        ..done = true,
+    );
+    session.messages.add(reply);
+
+    final restored = ChatSession.fromJson(session.toJson());
+    expect(restored.title, '测试');
+    expect(restored.mode, BackendMode.cloud);
+    expect(restored.messages.length, 2);
+    expect(restored.messages.last.tools.single.name, 'Bash');
+    expect(restored.messages.last.tools.single.result, 'a.txt');
+  });
 }

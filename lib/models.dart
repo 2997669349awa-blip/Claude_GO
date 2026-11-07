@@ -13,6 +13,24 @@ class ToolCard {
   String? result;
   bool isError = false;
   bool done = false;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'input': input,
+    if (result != null) 'result': result,
+    'isError': isError,
+    'done': done,
+  };
+
+  factory ToolCard.fromJson(Map<String, dynamic> json) => ToolCard(
+    id: json['id'] as String? ?? '',
+    name: json['name'] as String? ?? '工具',
+    input: (json['input'] as Map?)?.cast<String, dynamic>() ?? const {},
+  )
+    ..result = json['result'] as String?
+    ..isError = json['isError'] == true
+    ..done = json['done'] == true;
 }
 
 class ChatMessage {
@@ -25,8 +43,85 @@ class ChatMessage {
   final List<ToolCard> tools = [];
   bool streaming = false;
   String? error;
+  DateTime? completedAt;
   int? durationMs;
   double? costUsd;
+
+  Map<String, dynamic> toJson() => {
+    'role': role.name,
+    'text': text,
+    'tools': tools.map((tool) => tool.toJson()).toList(),
+    if (error != null) 'error': error,
+    if (completedAt != null)
+      'completedAt': completedAt!.millisecondsSinceEpoch,
+    if (durationMs != null) 'durationMs': durationMs,
+    if (costUsd != null) 'costUsd': costUsd,
+  };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final role = json['role'] == 'user' ? ChatRole.user : ChatRole.assistant;
+    final message = role == ChatRole.user
+        ? ChatMessage.user(json['text'] as String? ?? '')
+        : ChatMessage.assistant();
+    message.text = json['text'] as String? ?? '';
+    for (final tool in (json['tools'] as List? ?? const [])) {
+      message.tools.add(
+        ToolCard.fromJson((tool as Map).cast<String, dynamic>()),
+      );
+    }
+    message.error = json['error'] as String?;
+    final completed = json['completedAt'];
+    if (completed is num) {
+      message.completedAt = DateTime.fromMillisecondsSinceEpoch(
+        completed.toInt(),
+      );
+    }
+    message.durationMs = (json['durationMs'] as num?)?.toInt();
+    message.costUsd = (json['costUsd'] as num?)?.toDouble();
+    return message;
+  }
+}
+
+class ChatSession {
+  ChatSession({
+    required this.id,
+    required this.mode,
+    this.title = '新对话',
+    this.sessionId,
+    List<ChatMessage>? messages,
+    DateTime? updatedAt,
+  }) : messages = messages ?? [],
+       updatedAt = updatedAt ?? DateTime.now();
+
+  final String id;
+  BackendMode mode;
+  String title;
+  String? sessionId;
+  final List<ChatMessage> messages;
+  DateTime updatedAt;
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'mode': mode.name,
+    'title': title,
+    if (sessionId != null) 'sessionId': sessionId,
+    'updatedAt': updatedAt.millisecondsSinceEpoch,
+    'messages': messages.map((message) => message.toJson()).toList(),
+  };
+
+  factory ChatSession.fromJson(Map<String, dynamic> json) => ChatSession(
+    id: json['id'] as String? ?? '',
+    mode: json['mode'] == 'cloud' ? BackendMode.cloud : BackendMode.local,
+    title: json['title'] as String? ?? '新对话',
+    sessionId: json['sessionId'] as String?,
+    updatedAt: DateTime.fromMillisecondsSinceEpoch(
+      (json['updatedAt'] as num?)?.toInt() ?? 0,
+    ),
+    messages: [
+      for (final message in (json['messages'] as List? ?? const []))
+        ChatMessage.fromJson((message as Map).cast<String, dynamic>()),
+    ],
+  );
 }
 
 /// One normalized event from `claude --output-format stream-json`.

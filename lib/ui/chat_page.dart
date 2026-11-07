@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../app.dart';
 import '../models.dart';
+import '../pet/pet_view.dart';
 import '../store.dart';
+import 'app_drawer.dart';
+import 'cloud_setup_page.dart';
+import 'local_setup_page.dart';
 import 'settings_page.dart';
 import 'widgets.dart';
 
@@ -52,32 +56,46 @@ class _ChatPageState extends State<ChatPage> {
     final store = StoreScope.of(context);
     final theme = Theme.of(context);
     final local = store.settings.mode == BackendMode.local;
+    final session = store.activeSession;
     _jumpToEnd();
 
+    final assistants = store.messages
+        .where((message) => message.role == ChatRole.assistant)
+        .toList();
+    final last = assistants.isEmpty ? null : assistants.last;
+    final petMood = store.busy
+        ? PetMood.working
+        : (last?.error != null
+              ? PetMood.error
+              : (last?.completedAt != null &&
+                        DateTime.now().difference(last!.completedAt!) <
+                            const Duration(seconds: 3)
+                    ? PetMood.happy
+                    : PetMood.idle));
+
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         titleSpacing: 0,
-        title: Row(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const BrandMark(size: 26, shadow: false),
-            const SizedBox(width: 9),
             Text(
-              local ? '本地容器' : '云端电脑',
+              session?.title ?? 'Claude GO',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(width: 8),
-            Pill(store.settings.permissionLabel, active: true),
+            Text(
+              local ? '本地容器' : '云端电脑',
+              style: theme.textTheme.bodySmall?.copyWith(fontSize: 11),
+            ),
           ],
         ),
         actions: [
           IconButton(
             tooltip: '新对话',
-            onPressed: store.busy
-                ? null
-                : () async {
-                    await store.newSession();
-                    _jumpToEnd();
-                  },
+            onPressed: store.busy ? null : store.newSession,
             icon: const Icon(Icons.add_comment_outlined),
           ),
           IconButton(
@@ -90,25 +108,35 @@ class _ChatPageState extends State<ChatPage> {
           const SizedBox(width: 4),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: store.messages.isEmpty
-                ? const _EmptyChat()
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(18, 14, 18, 20),
-                    itemCount: store.messages.length,
-                    itemBuilder: (context, index) =>
-                        _MessageView(message: store.messages[index]),
-                  ),
+          Column(
+            children: [
+              Expanded(
+                child: store.messages.isEmpty
+                    ? const _EmptyChat()
+                    : ListView.builder(
+                        controller: _scroll,
+                        padding: const EdgeInsets.fromLTRB(18, 14, 18, 104),
+                        itemCount: store.messages.length,
+                        itemBuilder: (context, index) =>
+                            _MessageView(message: store.messages[index]),
+                      ),
+              ),
+              _Composer(
+                controller: _input,
+                busy: store.busy,
+                onSend: () => _send(store),
+                onStop: store.stop,
+              ),
+            ],
           ),
-          _Composer(
-            controller: _input,
-            busy: store.busy,
-            onSend: () => _send(store),
-            onStop: store.stop,
-          ),
+          if (store.settings.showPet)
+            Positioned(
+              left: 14,
+              bottom: 82,
+              child: PetView(mood: petMood, scale: 3),
+            ),
         ],
       ),
     );
@@ -122,8 +150,8 @@ class _EmptyChat extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -136,11 +164,40 @@ class _EmptyChat extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              '描述你想做的事。Claude Code 会读文件、改代码、跑命令。',
+              '描述你想做的事。Claude Code 会读文件、改代码、跑命令。\n'
+              '先在下面选一个运行方式。',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
               ),
               textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 22),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LocalSetupPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.terminal_rounded, size: 18),
+                    label: const Text('本地容器'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const CloudSetupPage(),
+                      ),
+                    ),
+                    icon: const Icon(Icons.laptop_mac_rounded, size: 18),
+                    label: const Text('云端电脑'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

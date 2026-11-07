@@ -216,10 +216,35 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const SizedBox(height: 28),
+          const SectionLabel('桌宠'),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: SwitchListTile.adaptive(
+              value: settings.showPet,
+              onChanged: (value) async {
+                setState(() => settings.showPet = value);
+                await store.save();
+              },
+              title: const Text('显示 Spark'),
+              subtitle: const Text(
+                '聊天页左下角。10 秒无触摸会转入待机，待机时左右瞟眼，再持续 10 秒会睡觉。',
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 4,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
           const SectionLabel('关于'),
           const SizedBox(height: 10),
           Text(
-            'Claude GO 0.1.0\n'
+            'Claude GO 0.2.0\n'
             '第三方 Claude Code 手机客户端。与 Anthropic 无隶属关系，'
             '不包含 Anthropic 的官方 App 或 Claude Code 二进制。\n\n'
             '本地模式依赖 Termux；云端模式依赖你电脑上的 SSH 与 Claude Code。',

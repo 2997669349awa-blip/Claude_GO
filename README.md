@@ -9,6 +9,8 @@ Claude GO 不是 Anthropic 官方产品，也不包含 Claude Code 的二进制�
 
 ## 功能
 
+- 会话抽屉：多会话历史、自动标题、本地持久化、删除
+- 桌宠 Spark：18 组动作；10 秒无触摸转入待机，待机时左右瞟眼，再持续 10 秒睡觉；可在设置里关闭
 - 流式输出、工具调用卡片、会话续聊（`--resume`）
 - Anthropic 兼容接口：可填官方 API、第三方中转或 DeepSeek 的 Anthropic 端点
 - 模型映射：主模型 / Opus / Sonnet / Haiku / 子代理
